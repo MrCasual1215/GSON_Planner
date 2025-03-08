@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <!-- planners -->
+    <node name="global_planner_node" pkg="ourplanner" type="global_planner.py" output="screen"> </node>
+    <node name="middle_planner_node" pkg="ourplanner" type="middle_planner.py" output="screen"> </node>
+    <node name="local_planner_node" pkg="ourplanner" type="local_planner.py" args="--stop_flag False"  output="screen"> </node>  
+    <!-- <node name="reset_local_node" pkg="ourplanner" type="reset_local.py" output="screen"> </node>   -->
+    <!-- <node name="obstacle_manager_node" pkg="ourplanner" type="obstacle_manager.py" output="screen"> </node>  --> 
+    <!-- <node name="trigger_node" pkg="ourplanner" type="trigger.py" output="screen"> </node>  -->
+
+
+
+
+    <!-- rviz -->
+    <!-- <node name="planner_rviz" pkg="rviz" type="rviz" args="-d $(find ourplanner)/rviz/test.rviz"/> -->
+
+    <!-- param -->
+    <rosparam file="$(find ourplanner)/config/config.yaml" command="load"/>
+
+</launch>
