@@ -3,8 +3,7 @@ import os
 import time
 import cv2
 import sys
-sys.path.insert(0,"/home/sp/planner_ws/src/ourplanner/scripts/planner_utils")
-from floyd_Bspline import Floyd_Bspline
+from planner_utils.floyd_Bspline import Floyd_Bspline
 
 class AStarPlanner:
     def __init__(self, costmap, resolution):
@@ -148,33 +147,3 @@ class AStarPlanner:
         return motion
 
 
-
-# test code
-if __name__ == '__main__':
-    # get map
-    costmap = cv2.imread('/home/sp/planner_ws/src/ourplanner/map/global_planner/costmap.png',cv2.IMREAD_GRAYSCALE) 
-
-
-    # astar planning
-    astar = AStarPlanner(costmap,0.05)
-    start = [14,15]
-    goal = [30,15]
-    s_time = time.time()
-    rx,ry = astar.planning(start[0],start[1],goal[0],goal[1])
-
-
-
-    floyd_bspline = Floyd_Bspline(costmap,3,0.05)
-    rx,ry = floyd_bspline.Trajectory_optimize(rx,ry,floyd=True,Bspline=True)
-    e_time = time.time()
-    # print(e_time-s_time)
-
-
-    # image show
-    for i in range(len(rx)-1):
-        cv2.line(costmap,(astar.xy2index(ry[i]),astar.xy2index(rx[i])), (astar.xy2index(ry[i+1]),astar.xy2index(rx[i+1])),128,2)
-    costmap = cv2.imwrite('/home/sp/planner_ws/src/ourplanner/map/global_planner/path.png',costmap) 
-
-
-    # cv2.imshow("hahahah",costmap)
-    # cv2.waitKey(0)

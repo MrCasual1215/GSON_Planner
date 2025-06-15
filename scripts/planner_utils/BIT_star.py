@@ -422,7 +422,7 @@ class BITStar:
 
 
 def main():
-    costmap = cv2.imread("/home/sp/arena_ws/src/ourplanner/map/test/costmap22.png",cv2.IMREAD_GRAYSCALE)
+    costmap = cv2.imread("/home/orin/arena_ws/src/ourplanner/map/test/costmap22.png",cv2.IMREAD_GRAYSCALE)
     x_start = (5, 5)  # Starting node
     x_goal = (25, 10)  # Goal node
     eta = 2
@@ -438,7 +438,7 @@ def main():
     show_map = costmap.copy()
     for i in range(len(path_x)-1):
         cv2.line(show_map,(int(path_y[i]*20),int(path_x[i]*20)), (int(path_y[i+1]*20),int(path_x[i+1]*20)), 128,2)
-    cv2.imwrite("/home/sp/arena_ws/src/ourplanner/map/test/bit.png",show_map)
+    cv2.imwrite("/home/orin/arena_ws/src/ourplanner/map/test/bit.png",show_map)
   
 
 

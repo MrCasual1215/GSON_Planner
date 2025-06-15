@@ -1,3 +1,4 @@
+#!/usr/bin/python
 from detection_msgs.msg import tracks as Track_msg
 from detection_msgs.msg import Group as Group_msg
 from nav_msgs.msg import OccupancyGrid, Path
@@ -5,6 +6,7 @@ from ourplanner.msg import ellipses, polygons
 from detection_msgs.msg import Groups
 from scipy.spatial import ConvexHull
 import numpy as np
+import rospkg
 import rospy
 import cv2
 import math
@@ -13,22 +15,21 @@ import math
 
 class Map_manager:
     def __init__(self) -> None:
-        self.pkg_path = rospy.get_param("planner_pkg_path")
-        self.origin_map_path = self.pkg_path + rospy.get_param("origin_map_path")
-        self.global_costmap_path = self.pkg_path +rospy.get_param("global_costmap_path")
-        self.middle_costmap_path = self.pkg_path +rospy.get_param("middle_costmap_path")
+        rospack = rospkg.RosPack()
+        self.pkg_path  = rospack.get_path('ourplanner')
+        self.origin_map_path = self.pkg_path + '/map/global_planner/origin_map.png'
+        self.global_costmap_path = self.pkg_path + '/map/global_planner/costmap.png'
+        self.middle_costmap_path = self.pkg_path + '/map/middle_planner/costmap.png'
+        self.inflate_size = rospy.get_param('map_manager/inflate_size',3)
+        self.erode_size = rospy.get_param('map_manager/erode_size',3)
+        self.person_inflate_size = rospy.get_param('map_manager/person_inflate_size', 1)
+        self.group_inflate_size = rospy.get_param('map_manager/group_inflate_size', 1)
+
         self.resolution = 0.05
         
 
-
-    def Get_global_costmap(self):
-        self.Get_origin_map()
-        self.global_costmap = self._inflate_costmap(0.4, self.origin_map)
-
     def Map_cb(self, msg:OccupancyGrid):
-        rospy.loginfo("got fxxking map")
-
-
+        rospy.loginfo("got map")
         self.origin_x = msg.info.origin.position.x
         self.origin_y = msg.info.origin.position.y
         self.resolution = msg.info.resolution
@@ -37,30 +38,25 @@ class Map_manager:
         self.grid_map_width = msg.info.width
         self.grid_map_height = msg.info.height
 
+        self.Get_origin_map()
+        self.Get_global_costmap()
+
     
     def Get_origin_map(self):
-        # map = cv2.imread("/home/sp/planner_ws/src/ourplanner/map/global_planner/testmap.png",cv2.IMREAD_GRAYSCALE)
-        # map = cv2.transpose(map)
-        # map = cv2.flip(map,1)
-        # _, self.origin_map = cv2.threshold(map,220,255,cv2.THRESH_BINARY)
-        rospy.loginfo("got fxxking origin map!")
         self.origin_map = self._gridmap2image(self.grid_map_width, self.grid_map_height, self.grid_map)
         cv2.imwrite(self.origin_map_path, self.origin_map)
 
 
     def Get_global_costmap(self):
-        self.Get_origin_map()
-        self.global_costmap = self._inflate_costmap(0.4, self.origin_map)
-        rospy.loginfo("got fxxking global costmap!")
+        self.global_costmap = self._inflate_costmap(self.erode_size, self.inflate_size, self.origin_map)
         cv2.imwrite(self.global_costmap_path,self.global_costmap)
 
 
-    def Get_middle_costmap(self, ellipses_group, polygons):
-        self.global_costmap = cv2.imread(self.origin_map_path, cv2.IMREAD_GRAYSCALE)
+    def Get_middle_costmap(self, ellipses_group, polygons, poses):
         global_costmap = self.global_costmap.copy()
 
-        da = 0.4
-        db = 0.3
+        da = self.group_inflate_size
+        db = self.group_inflate_size
         for ellipses in ellipses_group: # draw ellipses
             for i in range(len(ellipses)):
                 center_coordinates = (int((ellipses[i][1]-self.origin_y)/self.resolution), int((ellipses[i][0] - self.origin_x)/self.resolution))
@@ -78,6 +74,14 @@ class Map_manager:
                 points.append([(polygon[i][1]-self.origin_y)/self.resolution,(polygon[i][0]- self.origin_x)/self.resolution])
             points = np.array(points, np.int32)
             cv2.fillPoly(global_costmap, [points], color=0)
+
+        
+
+        if poses is not None:
+            for pose in poses.poses:
+                x = int((pose.position.x - self.origin_x)/self.resolution)
+                y = int((pose.position.y - self.origin_y)/self.resolution)
+                cv2.circle(global_costmap, (y,x), int(self.person_inflate_size/0.05), 0, -1) # 参数：圆心，半径，颜色，厚度
 
         self.middle_costmap = global_costmap
         cv2.imwrite(self.middle_costmap_path, self.middle_costmap)
@@ -111,20 +115,16 @@ class Map_manager:
         return image
     
 
-    def _inflate_costmap(self,inflation_radius,costmap):
+    def _inflate_costmap(self, erode_size, inflate_size, costmap):
         costmap = 255 - costmap
         costmap_uint8 = costmap.astype(np.uint8)
 
+        erode_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (erode_size, erode_size))
+        inflate_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (inflate_size, inflate_size))
 
 
-        kernel = np.ones((1,1),np.uint8)
-        eroded_map = cv2.erode(costmap_uint8,kernel,iterations=1)
-
-
-        # inflation_radius_in_cells = int(inflation_radius / self.resolution)
-        # kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2*inflation_radius_in_cells+1, 2*inflation_radius_in_cells+1))
-        inflated_costmap = cv2.dilate(eroded_map, kernel,iterations=1)
-
+        eroded_map = cv2.erode(costmap_uint8,erode_kernel,iterations=1)
+        inflated_costmap = cv2.dilate(eroded_map, inflate_kernel,iterations=1)
 
         inflated_costmap = 255 - inflated_costmap
         return inflated_costmap

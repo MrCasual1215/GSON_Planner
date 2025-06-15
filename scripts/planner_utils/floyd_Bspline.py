@@ -1,9 +1,6 @@
 import matplotlib.pyplot as plt
 from scipy.interpolate import BSpline
 import numpy as np
-import math
-import os
-import cv2
     
 class Floyd_Bspline:
     def __init__(self,costmap,k,resolution):
@@ -95,7 +92,7 @@ class Floyd_Bspline:
             
 
             points = np.array(list(zip(f_x,f_y)))
-            interpolated_points = self._interpolate_points(points,2)
+            interpolated_points = self._interpolate_points(points,0.3)
             n = len(interpolated_points)
             # print(interpolated_points)
 
@@ -108,49 +105,14 @@ class Floyd_Bspline:
                 if( n < 2 * self.bspline_k + 2):return f_x,f_y
                 ctrl_points = np.array(list(zip(rx,ry)))
 
-
             k = self.bspline_k 
             t = np.concatenate(([0]*k, np.arange(n - k + 1), [n - k]*k))
             spl = BSpline(t, ctrl_points, k)
             x = np.linspace(0, n-k, 100)
             yy = spl(x)
                 
-            # k = self.bspline_k  
-            # t = range(len(ctrl_points) + k + 1) 
-            # spl = BSpline(t, ctrl_points, k)
-            # xx = np.linspace(min(t), max(t), 100)
-            # yy = spl(xx)
-
             rx = list(yy[:,0])
             ry = list(yy[:,1])
 
-            # reset the start point and the goal point
-            # start_index = self._find_min_dis(rx,ry,start)
-            # goal_index = self._find_min_dis(rx,ry,goal)
-
-            # rx = rx[start_index:goal_index+1]
-            # ry = ry[start_index:goal_index+1]
-
         return rx,ry
 
-
-if __name__ == '__main__':
-    # get map
-    img_path = os.getcwd()
-    costmap = cv2.imread(img_path + '\config\costmap.png',cv2.IMREAD_GRAYSCALE) #[0]383*[1]484
-    map = cv2.imread(img_path + '\config\map.png',cv2.IMREAD_GRAYSCALE)
-    
-    # astar path 
-    astar_x = [ 99.1,  100.0,  99.8,  99.9, 107.7, 115.4, 115.7, 115.4, 115.7, 115.9, 118.2, 125.1, 135.3, 145.1, 154.9, 165.4, 174.6, 185.1, 195.7]
-    astar_y = [ 98.6,  108.7, 118.5, 128.4, 138.4, 148.2, 158.2, 168.0, 178.1, 187.5, 197.8, 207.5, 212.6, 213.5, 213.8, 213.7, 213.2, 213.6, 216.3]
-
-    # apply floydBspline
-    floyd_bspline = Floyd_Bspline(costmap,3)
-    rx,ry = floyd_bspline.Trajectory_optimize(astar_x,astar_y,floyd=True,Bspline=False)
-
-    # image show
-    for i in range(len(rx)-2):
-            cv2.line(map,(int(rx[i]),int(ry[i])), (int(rx[i+1]),int(ry[i+1])),128,2)
-
-    cv2.imshow('map',map)
-    cv2.waitKey(0)

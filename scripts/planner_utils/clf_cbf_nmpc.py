@@ -55,24 +55,6 @@ class CLF_CBF_NMPC():
         omega_max       : Maximum angular velocity
     """
 
-    ## parameters for optimization
-    step = 0.1
-    N = 100
-    M_CBF = 6 
-    M_CLF = 1 
-    gamma_k = 0.2
-    alpha_k = 0.01 
-    opti = ca.Opti()
-
-    opt_x0_global = opti.parameter()
-    opt_x0_local = opti.parameter()
-    opt_controls = opti.variable(N)
-    opt_states = opti.variable(N+1)
-    opt_d_slack = opti.variable(N)
-    opt_cost = 0
-
-    v_max = 0.15
-    omega_max = 1.0
 
     def __init__(self, n, stp, m_cbf, m_clf, gamma, alpha, dim_x = 3, dim_u = 2):
         self.N = n
@@ -84,9 +66,7 @@ class CLF_CBF_NMPC():
         self.opti = ca.Opti()
 
         self.v_max = 0.3
-        self.omega_max = 1.2
-        # self.v_max = v_m
-        # self.omega_max = omg_m
+        self.omega_max = 0.5
 
         # state variables
         self.opt_states = self.opti.variable(self.N+1, dim_x)
@@ -106,6 +86,7 @@ class CLF_CBF_NMPC():
         self.R = np.array([[1.0, 0.0], [0.0, 1]])
 
         # set up cost function
+        self.opt_cost = 0
         self.__set_cost_func()
 
 
@@ -138,7 +119,7 @@ class CLF_CBF_NMPC():
         for i in range(self.N):
             self.opt_cost = self.opt_cost + ca.mtimes([self.opt_controls[i, :], self.R, self.opt_controls[i, :].T]) + ca.mtimes([self.opt_d_slack[i, :], W_slack, self.opt_d_slack[i, :].T])
             self.opt_cost = self.opt_cost + ca.mtimes([(self.opt_states[i, :] - self.goal_local.T), self.Q, (self.opt_states[i, :]- self.goal_local.T).T]) / 5
-        # final term 
+        # final term W_slack
         self.opt_cost = self.opt_cost + ca.mtimes([(self.opt_states[self.N-1, :] - self.goal_local.T), self.Q, (self.opt_states[self.N-1, :]- self.goal_local.T).T])
 
         for i in range(self.N):
@@ -186,8 +167,8 @@ class CLF_CBF_NMPC():
             self.opt_trj[1] += delta[1]
     
     def __add_system_constrnts(self): 
-        x = self.opt_states[:, 0]
-        y = self.opt_states[:, 1]
+        # x = self.opt_states[:, 0]
+        # y = self.opt_states[:, 1]
         # theta = self.opt_states[:, 2]
         v = self.opt_controls[:, 0]
         omega = self.opt_controls[:, 1]
@@ -200,12 +181,6 @@ class CLF_CBF_NMPC():
 
         self.opti.subject_to(self.opti.bounded(-self.v_max, v, self.v_max))
         self.opti.subject_to(self.opti.bounded(-self.omega_max, omega, self.omega_max)) 
-
-        # testing 
-        # for i in range(self.N):
-        #     distance_to_obstacle = ca.sqrt((x[0]+delta[0] - 7.0)**2 + (y[0]+delta[1] -  10)**2) + ca.sqrt((x[0]+delta[0] - 13.0)**2 + (y[0]+delta[1] -  10)**2)
-        #     self.opti.subject_to(distance_to_obstacle >= 10)
-
 
 
 
@@ -225,9 +200,9 @@ class CLF_CBF_NMPC():
 
 
 
-    def __add_safe_constrnts(self, ellipses, circles):
+    def __add_safe_constrnts(self):
         # safe distance
-        safe_dist = 0.5
+        safe_dist = 0.4
         # control barrier function
         h = lambda x_,y_: (x_[0] - y_[0]) ** 2 + (x_[1] - y_[1]) ** 2 - safe_dist**2
 
@@ -243,32 +218,6 @@ class CLF_CBF_NMPC():
                 self.opti.subject_to(h(self.opt_states[i+1, :], self.obstacles[i+1][j]) >= (1-self.gamma_k)*h(self.opt_states[i, :], self.obstacles[i][j]) ) 
 
 
-
-        # circle test
-        circle = [(0.5, 0.0), 0.5]
-        for i in range(self.M_CBF):
-            for j in range(np.size(self.obstacles, 1)):
-                self.opti.subject_to(h_circle(self.opt_states[i+1, :],circle) >= (1-self.gamma_k)*h_circle(self.opt_states[i, :], circle) ) 
-        
-
-
-
-
-        # # add ellipses
-        # init_st = self.opti.value(self.opt_x0_global)
-
-        # # CBF
-        # h2 = lambda x_, ellipse: ((((x_[0] - ellipse[0] + init_st[0])*ca.cos(ellipse[4]) + (x_[1] - ellipse[1] + init_st[1])*ca.sin(ellipse[4])) ** 2)/ (ellipse[2]**2) + \
-        #                           ((-(x_[0] - ellipse[0] + init_st[0])*ca.sin(ellipse[4]) + (x_[1] - ellipse[1] + init_st[1])*ca.cos(ellipse[4])) ** 2)/ (ellipse[3]**2)) - 1.0
-    
-
-        # for ellipse in ellipses:
-        #     for i in range(self.M_CBF): 
-        #         self.opti.subject_to(h2(self.opt_states[i+1, :],ellipse) >= (1 - 1)*h2(self.opt_states[i, :],ellipse) ) 
-        
-
-
-
     def __add_stability_constrnts(self):
         # control Lyapunov function 
         V = lambda x_: (x_[0] - self.goal_local[0]) ** 2 + (x_[1] - self.goal_local[1]) ** 2 
@@ -277,11 +226,8 @@ class CLF_CBF_NMPC():
             self.opti.subject_to(V(self.opt_states[i+1, :]) <= (1-self.alpha_k)*V(self.opt_states[i, :]) + self.opt_d_slack[i, :])
         pass
 
-    def __adopt_d_sslack_constrnts(self):
-        pass
 
-
-    def solve(self, init_st, goal_st, others_states, circles, ellipses):
+    def solve(self, init_st, local_reference, others_states):
         """
         Solving the CLF-CBF-NMPC optimization. 
 
@@ -328,9 +274,7 @@ class CLF_CBF_NMPC():
         # delete those out of the ROI
         self.obstacles = np.delete(self.obstacles, l, axis=1)
 
-        # print(self.obstacles)
-        # print(self.obstacles)
-        # print(self.obstacles.shape)
+
 
 
         # Turn everything into local coordinates. 
@@ -340,7 +284,7 @@ class CLF_CBF_NMPC():
         # Adding constraints to the optimizer
         self.__add_system_constrnts()
         self.__add_dynamics_constrnts()
-        self.__add_safe_constrnts(ellipses, circles)
+        self.__add_safe_constrnts()
         self.__add_stability_constrnts()
 
         # Optimizer configures
@@ -352,7 +296,6 @@ class CLF_CBF_NMPC():
         # self.solution = self.opti.solve()
         
 
-        start = time.time()
         # Solve
         try:
 
@@ -393,34 +336,3 @@ class CLF_CBF_NMPC():
         return self.solution.value(self.opt_controls)[0, :]
 
 
-
-def Simple_Catcher(attacker_state,defender_state):
-    is_poistive = 1
-    distance = np.sqrt(np.sum(np.square(attacker_state[:2] - defender_state[:2])))
-    dx =attacker_state[0] - defender_state[0]
-    dy =attacker_state[1] - defender_state[1]
-    theta_e = np.arctan2(dy,dx) - defender_state[2]
-    # print(np.arctan(dy/dx))
-    # print(defender_state[2])
-    # attacker_state[2] - defender_state[2]
-    if(theta_e>np.pi):
-        theta_e -= 2*np.pi
-    elif (theta_e<-np.pi):
-        theta_e += 2*np.pi
-    # print(theta_e)
-    
-    if(theta_e>np.pi/2 or theta_e<-np.pi/2):
-        is_poistive = -1
-
-    u = 1.5*distance*is_poistive
-    w = theta_e*is_poistive
-    u = np.clip(u, -0.32, 0.32)
-    w = np.clip(w, -2, 2)
-    return np.array([u,w])
-
-
-## Test Code
-if __name__ == '__main__':
-    states = np.array([[-1,0,0],[0.5,0,-np.pi]])
-    u = CLF_CBF_NMPC(states[0],states[1])
-    print(u)

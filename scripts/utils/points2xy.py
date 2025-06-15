@@ -130,8 +130,8 @@ class PathOptimizer:
         ry = [point[1] for point in points]
 
         with open(filename, 'w') as file:
-            file.write("m_rx = [" + ", ".join(map(str, rx)) + "]\n")
-            file.write("m_ry = [" + ", ".join(map(str, ry)) + "]\n")
+            file.write("rx : [" + ", ".join(map(str, rx)) + "]\n")
+            file.write("ry : [" + ", ".join(map(str, ry)) + "]\n")
 
         rospy.loginfo(f"Points exported to {filename}")
 

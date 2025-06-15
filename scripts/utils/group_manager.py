@@ -4,8 +4,7 @@ from ourplanner.msg import ellipses, polygons
 from detection_msgs.msg import Groups
 from scipy.spatial import ConvexHull
 import sys
-sys.path.insert(0,"/home/sp/planner_ws/src/ourplanner/scripts/utils")
-from rviz_drawer import Rviz_drawer
+from utils.rviz_drawer import Rviz_drawer
 import numpy as np
 import rospy
 import math
@@ -51,6 +50,9 @@ class Group_manager:
     def __init__(self) -> None:
         self.polygons_pub = rospy.Publisher('/polygons', polygons, queue_size=1)
         self.ellipses_pub = rospy.Publisher('/ellipses', ellipses, queue_size=1)
+        self.p_step = rospy.get_param('group_manager/predicted_steps', 0.1)
+        self.timestep = rospy.get_param('timestep', 0.1)
+        self.poses = None
         self.groups = []
         self.polygons = []
         self.ellipses_group = []
@@ -59,57 +61,15 @@ class Group_manager:
 
 
     def Group_add(self, group_msg:Groups):
-        # rospy.loginfo(group_msg)
-        rospy.loginfo("Group msg received!!!!!!!!!!!!!!!!!!!!!!!!")
+        # rospy.loginfo("Group msg received!")
         """
         将GPT识别到的分组结果记录下来 [poses,ids,vels,stamps]
 
         Args:
             group_msg             : GPT识别得到的结果, 每个group中由poselist, idlist, vellist组成
         """
-        if_return = True
-        for group in group_msg.group_list:
-            print(len(group.group_id_list))
-            if len(group.group_id_list) > 1:
-                if_return = False
-
-        if if_return:
+        if all(len(group.group_id_list) <= 1 for group in group_msg.group_list):
             return
-
-
-        # for group in group_msg.group_list:
-        #     rospy.loginfo(f"new groups:{group.group_id_list}")
-
-        # for new_group in group_msg.group_list:
-        #             new_pose_list, new_id_list, new_vel_list = [], [], []
-        #             for pose, id, vx, vy in zip(new_group.group_pose_list.poses, new_group.group_id_list, new_group.group_vel_x_list, new_group.group_vel_y_list):
-        #                 new_pose_list.append([pose.position.x, pose.position.y])
-        #                 new_id_list.append(id)
-        #                 new_vel_list.append([vx, vy])
-
-        #             merged = False
-        #             # 遍历已有的groups
-        #             for existing_group in self.groups:
-        #                 existing_group: Group
-        #                 # 检查是否有相同的ID
-        #                 if any(id in existing_group.id_list for id in new_id_list):
-        #                     # 合并位置信息、ID和速度
-        #                     existing_group.poses.extend(new_pose_list)
-        #                     existing_group.ids.extend(new_id_list)
-        #                     existing_group.vels.extend(new_vel_list)
-        #                     existing_group.stamps.extend([ group_msg.header.stamp for i in range(len(new_id_list))])
-        #                     existing_group.person_number += len(new_id_list)
-        #                     merged = True
-        #                     break
-                        
-        #             if not merged:
-        #                 # 如果没有找到相同的ID，创建新的group
-        #                 new_group = Group(new_pose_list, new_id_list, new_vel_list, group_msg.header.stamp)
-        #                 self.groups.append(new_group)
-
-        # rospy.loginfo("xixi")
-        # for group in self.groups:
-        #     rospy.loginfo(f"merged groups:{group.ids}")
 
         groups = []
         for group in group_msg.group_list:
@@ -122,8 +82,6 @@ class Group_manager:
             group = Group(pose_list, id_list, vel_list, group_msg.header.stamp)
             groups.append(group)
         self.groups = groups
-                        
-
 
         self.group_number = len(self.groups)
         self.GPT_PERCEIVED = True
@@ -134,20 +92,23 @@ class Group_manager:
         for group in self.groups:
             group:Group # 注意与上方group区别 Group_manager 维护的self.group
             # 找到每个group的凸包 ， 获取凸多边形和椭圆
-            if group.person_number > 2:
-                self.hull = ConvexHull(group.poses)
-                polygon = self.get_polygons(group.poses,self.hull.vertices,0.1)
-                ellipses = self.get_ellipses(group.poses,self.hull.vertices,0.5)
-            elif group.person_number == 2:  
-                # 只有两个人的情况
-                polygon = self.get_polygons(group.poses,[0,1],0.1)
-                ellipses = self.get_ellipses(group.poses,[0,1],0.5)
-            else:
-                polygon = []
-                ellipses = []
+            poses = group.poses
+            for n in range(self.p_step+1):
+                poses = [[pose[0] + group.vels[i][0]*n*self.timestep, pose[1] + group.vels[i][1]*n*self.timestep] for i, pose in enumerate(poses)]
+                if group.person_number > 2:
+                    self.hull = ConvexHull(group.poses)
+                    polygon = self.get_polygons(poses,self.hull.vertices,0.1)
+                    ellipses = self.get_ellipses(poses,self.hull.vertices,0.5)
+                elif group.person_number == 2:  
+                    # 只有两个人的情况
+                    polygon = self.get_polygons(poses,[0,1],0.1)
+                    ellipses = self.get_ellipses(poses,[0,1],0.5)
+                else:
+                    polygon = []
+                    ellipses = []
 
-            polygons.append(polygon)
-            ellipses_group.append(ellipses)
+                polygons.append(polygon)
+                ellipses_group.append(ellipses)
         
         self.polygons = polygons
         self.ellipses_group = ellipses_group
@@ -165,6 +126,8 @@ class Group_manager:
         Args:
             track_msg            : perception module 所实时得到的人的poses, ids, vels
         """
+
+        self.poses = track_msg.track_pose_list
         
         if not self.GPT_PERCEIVED:
             return
@@ -186,24 +149,26 @@ class Group_manager:
                     dt = (track_msg.header.stamp - group.stamps[index]).to_sec()
                     dx = group.vels[index][0]*dt
                     dy = group.vels[index][1]*dt
+                    # 就不动把
                     # group.poses[index] =  [group.poses[index][0] + dx, group.poses[index][1] + dy] 
 
-            # 找到每个group的凸包 ， 获取凸多边形和椭圆
-            if group.person_number > 2:
-                self.hull = ConvexHull(group.poses)
-                polygon = self.get_polygons(group.poses,self.hull.vertices,0.1)
-                ellipses = self.get_ellipses(group.poses,self.hull.vertices,0.5)
-            elif group.person_number == 2:  
-                # 只有两个人的情况
-                polygon = self.get_polygons(group.poses,[0,1],0.1)
-                ellipses = self.get_ellipses(group.poses,[0,1],0.5)
-            else:
-                polygon = []
-                ellipses = []
+            poses = group.poses
+            for n in range(self.p_step+1):
+                poses = [[pose[0] + group.vels[i][0]*n*self.timestep, pose[1] + group.vels[i][1]*n*self.timestep] for i, pose in enumerate(poses)]
+                if group.person_number > 2:
+                    self.hull = ConvexHull(group.poses)
+                    polygon = self.get_polygons(poses,self.hull.vertices,0.1)
+                    ellipses = self.get_ellipses(poses,self.hull.vertices,0.5)
+                elif group.person_number == 2:  
+                    # 只有两个人的情况
+                    polygon = self.get_polygons(poses,[0,1],0.1)
+                    ellipses = self.get_ellipses(poses,[0,1],0.5)
+                else:
+                    polygon = []
+                    ellipses = []
 
-    
-            polygons.append(polygon)
-            ellipses_group.append(ellipses)
+                polygons.append(polygon)
+                ellipses_group.append(ellipses)
         
         self.polygons = polygons
         self.ellipses_group = ellipses_group
@@ -259,7 +224,7 @@ class Group_manager:
 
 
 
-    @ staticmethod
+    @staticmethod
     def get_ellipses(detections,order,r) -> list:
         ordered_points = []
         for i in range(len(order)):
@@ -288,7 +253,7 @@ class Group_manager:
 
 
 
-    @ staticmethod
+    @staticmethod
     def get_polygons(detections,order,r) -> list:
         ordered_points = []
         for i in range(len(order)):

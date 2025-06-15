@@ -1,50 +1,37 @@
-#! /usr/bin/python3
-
-from geometry_msgs.msg import PoseStamped, PoseArray, Pose, Point, PolygonStamped, Point32
-from ourplanner.msg import global_path, ellipses, polygons, dynamic_obstacles, pose
-from move_base_msgs.msg import MoveBaseActionFeedback
-from detection_msgs.msg import Group as Group_msg
+#!/usr/bin/python
+from ourplanner.msg import global_path, pose
 from nav_msgs.msg import OccupancyGrid, Path
 from detection_msgs.msg import Groups,tracks
-from visualization_msgs.msg import Marker
-from std_msgs.msg import Int32MultiArray,Bool
-from scipy.spatial import ConvexHull
 from scipy.interpolate import BSpline
 import tf.transformations as tf
 import tf2_ros
 import numpy as np
 import rospy
 import math
-import time
-import cv2
-import sys
-sys.path.insert(0,'/home/sp/planner_ws/src/ourplanner/scripts')
 from planner_utils.BIT_star import BITStar
 from utils.group_manager import Group_manager
 from utils.rviz_drawer import Rviz_drawer
 from utils.map_manager import Map_manager
+import traceback
 
-GroupEstimation = True
 
 class Middle_planner:
     def __init__(self) -> None:
         rospy.init_node("middle_planner_node")  
 
-        self.global_path = global_path()
+        self.global_path = None
         self.current_pose = pose()
         self.group_manager = Group_manager()
         self.rviz_drawer = Rviz_drawer()
         self.map_manager = Map_manager()
     
         rospy.Subscriber("/global_path", global_path,self.Global_path_cb,queue_size=1)
-        rospy.Subscriber("/group", Groups,self.group_manager.Group_add,queue_size=1)
+        rospy.Subscriber("/detection/group", Groups,self.group_manager.Group_add,queue_size=1)
         rospy.Subscriber("/tracker", tracks, self.group_manager.Group_update,queue_size=1)
-        rospy.Subscriber("/llm_flag",Bool,self.Stop_cb,queue_size=1)
 
 
         self.map_sub = rospy.Subscriber("/map", OccupancyGrid, self.map_manager.Map_cb,queue_size=1)
         self.middle_path_pub = rospy.Publisher('/middle_path', global_path, queue_size=1)
-        self.middle_flag_pub = rospy.Publisher("/middle_flag",Bool,queue_size=1)
 
 
         self.buffer = tf2_ros.Buffer()
@@ -59,6 +46,7 @@ class Middle_planner:
         '''
         获取global Reference
         '''
+        self.global_path = global_path()
         self.global_path.length = msg.length
         self.global_path.goal_yaw = msg.goal_yaw
         self.global_path.path_x = msg.path_x
@@ -66,11 +54,6 @@ class Middle_planner:
         
         self.last_path = msg
 
-
-    def Stop_cb(self, msg:Bool):
-        # rospy.loginfo(f"middle planner got llm flag{msg.data}!!")
-        # self.stop_flag = msg.data
-        pass
 
 
     def Get_robot_pose(self):
@@ -106,16 +89,15 @@ class Middle_planner:
                     - return global path
             - return middle path
         """
+        # for group in self.group_manager.groups:
+        #     print(f"Group ID: {group.ids}, Number of people: {group.person_number}, Poses: {group.poses}")
 
         #-------------------------------------------initialize--------------------------------------------
 
         # get robot's pose
         self.Get_robot_pose()
         # update costmap
-        # rospy.loginfo("ellipses group:")
-        # rospy.loginfo(self.group_manager.ellipses_group)
-        
-        self.map_manager.Get_middle_costmap(self.group_manager.ellipses_group, self.group_manager.polygons)
+        self.map_manager.Get_middle_costmap(self.group_manager.ellipses_group, self.group_manager.polygons, self.group_manager.poses)
 
         # set global path 
         gloabl_path_length = self.global_path.length
@@ -196,10 +178,7 @@ class Middle_planner:
                     end_collided_index = gloabl_path_length -1
 
 
-        # rospy.loginfo(MIDDLE_PLANNING)
-
-
-        if MIDDLE_PLANNING and GroupEstimation:
+        if MIDDLE_PLANNING :
             # rospy.loginfo("e_index")
             self.e_index = end_collided_index 
             # set start and goal
@@ -235,12 +214,6 @@ class Middle_planner:
             seclusion_path_y = global_path_y
 
 
-        # publish flag 
-        flag = Bool()
-        flag = MIDDLE_PLANNING
-        self.middle_flag_pub.publish(flag)
-
-
         # publish path
         path = global_path()
         path.length = len(seclusion_path_x)
@@ -260,7 +233,7 @@ class Middle_planner:
         rate = rospy.Rate(5)  
         while not rospy.is_shutdown():
             try:
-                if self.group_manager.GPT_PERCEIVED:
+                if self.group_manager.GPT_PERCEIVED and self.global_path is not None:
                     self.Socio_Spatial_Planning()
                 else:
                     rospy.loginfo("Middle planner is waiting........")

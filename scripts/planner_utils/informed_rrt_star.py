@@ -38,7 +38,7 @@ class Informed_RRTstar:
         # cv2.circle(test_map,(int(start[1]/self.resolution),int(start[0]/self.resolution)),2,128)
         # cv2.circle(test_map,(int(goal[1]/self.resolution),int(goal[0]/self.resolution)),2,128)
 
-        # cv2.imwrite("/home/sp/arena_ws/src/ourplanner/map/middle_planner/test.png",test_map)
+        # cv2.imwrite("/home/orin/arena_ws/src/ourplanner/map/middle_planner/test.png",test_map)
 
 
         if self._check(start) == False or  self._check(goal) == False:
@@ -321,7 +321,7 @@ def main():
     show_animation = True
 
     # get costmap
-    costmap = cv2.imread('/home/sp/arena_ws/src/ourplanner/map/middle_planner/costmap.png', cv2.IMREAD_GRAYSCALE)
+    costmap = cv2.imread('/home/orin/arena_ws/src/ourplanner/map/middle_planner/costmap.png', cv2.IMREAD_GRAYSCALE)
 
     # set parameter
     t1 = time.time()
@@ -336,7 +336,7 @@ def main():
     if show_animation :
         for i in range(len(path) - 1):
             cv2.line(costmap, (xy2index(path[i][1]),xy2index(path[i][0])), (xy2index(path[i+1][1]),xy2index(path[i+1][0])), color=0, thickness=1)
-        cv2.imwrite("/home/sp/arena_ws/src/ourplanner/map/middle_planner/test.png",costmap)
+        cv2.imwrite("/home/orin/arena_ws/src/ourplanner/map/middle_planner/test.png",costmap)
 
 
 
