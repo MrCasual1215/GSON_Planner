@@ -7,9 +7,6 @@
     <node name="local_planner_node" pkg="ourplanner" type="local_planner.py"  output="screen"> </node>  
 
     <!-- rviz -->
-    <node name="planner_rviz" pkg="rviz" type="rviz" args="-d $(find ourplanner)/rviz/test.rviz"/>
-
-    <!-- param -->
-    <!-- <node name="percept_rviz" pkg="rviz" type="rviz" args="-d $(find perception_module)/rviz/2.rviz" required="true" output="screen" /> -->
+    <node name="planner_rviz" pkg="rviz" type="rviz" args="-d $(find ourplanner)/rviz/planner.rviz"/>
 
 </launch>

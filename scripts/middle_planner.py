@@ -44,7 +44,7 @@ class Middle_planner:
 
     def Global_path_cb(self,msg:global_path):
         '''
-        获取global Reference
+        get global Reference
         '''
         self.global_path = global_path()
         self.global_path.length = msg.length
@@ -58,7 +58,7 @@ class Middle_planner:
 
     def Get_robot_pose(self):
         '''
-        获取机器人pose 6d
+        get the robot pose in map frame
         '''
         pose = self.buffer.lookup_transform('map','base_link',rospy.Time(0))
         self.current_pose.x  = pose.transform.translation.x
@@ -123,13 +123,13 @@ class Middle_planner:
         MIDDLE_PLANNING = False
 
         dis = lambda x: math.sqrt((x[0] - self.current_pose.x)**2 + (x[1] - self.current_pose.y)**2) # distance^2
-        min_dis_point = min(global_path_points,key=dis)             # 在global path 上找到距离robot's pose最近的point
-        min_index = global_path_points.index(min_dis_point)         # 最近的索引
-        min_distance = (dis(min_dis_point))                         # 最近的距离
+        min_dis_point = min(global_path_points,key=dis)             
+        min_index = global_path_points.index(min_dis_point)         
+        min_distance = (dis(min_dis_point))                         
 
 
 
-        # 在 global path 上找到第一个碰撞的点
+        # check if path[min_index:] collides
         for index in range(min_index, gloabl_path_length):          
             if self.map_manager._collision(index):                              # path[index] collided! 
                 start_collided_index = index
@@ -137,7 +137,7 @@ class Middle_planner:
 
 
         if 'start_collided_index' not in locals().keys():  
-            if (min_distance > 1.0)  : # 虽然没有障碍物 但是距离global path较远，在global path上寻找taget
+            if (min_distance > 1.0)  : 
                 MIDDLE_PLANNING = True
                 for index in range(min_index, gloabl_path_length):
                     if dis(global_path_points[index]) > self.Middle_planning_radius:
@@ -146,8 +146,7 @@ class Middle_planner:
                 if index == gloabl_path_length:
                     end_collided_index = gloabl_path_length -1
         else: 
-            # global path 上有障碍物 
-            # 寻找障碍物的边界
+            # find end_collided_index
 
             for k in range(start_collided_index, gloabl_path_length):
                 if self.map_manager._collision(k) == False:
@@ -158,11 +157,8 @@ class Middle_planner:
         
 
             if (dis(global_path_points[start_collided_index]) < self.Middle_planning_radius): 
-                # if robot's pose 与障碍物开始的距离小于middle planning半径，开启middle planning
                 MIDDLE_PLANNING = True
-                # 向后延长一段距离
                 dis_sum = 0
-                # rospy.loginfo("back ")
 
                 for k in range(end_collided_index, gloabl_path_length):
                     dis = math.sqrt((global_path_x[k]-global_path_x[max(end_collided_index,k-1)])**2 + \
@@ -191,7 +187,6 @@ class Middle_planner:
                 seclusion_path_y = []
                 MIDDLE_PLANNING = False
             else:
-                # Bspline 轨迹优化
                 goal_index = min(self.e_index + 10, gloabl_path_length -1)
                 seclusion_path_x.append(global_path_x[goal_index] - self.map_manager.origin_x)
                 seclusion_path_y.append(global_path_y[goal_index] - self.map_manager.origin_y)

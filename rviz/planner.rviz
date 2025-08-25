@@ -1,6 +1,6 @@
 Panels:
   - Class: rviz/Displays
-    Help Height: 374
+    Help Height: 0
     Name: Displays
     Property Tree Widget:
       Expanded:
@@ -9,9 +9,10 @@ Panels:
         - /TF1
         - /TF1/Frames1
         - /Path2
+        - /Image1
         - /Path3
       Splitter Ratio: 0.5
-    Tree Height: 943
+    Tree Height: 1317
   - Class: rviz/Selection
     Name: Selection
   - Class: rviz/Tool Properties
@@ -29,7 +30,7 @@ Panels:
   - Class: rviz/Time
     Name: Time
     SyncMode: 0
-    SyncSource: LaserScan
+    SyncSource: ""
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -99,31 +100,47 @@ Visualization Manager:
       Filter (whitelist): ""
       Frame Timeout: 15
       Frames:
-        All Enabled: false
-        base_footprint:
+        All Enabled: true
+        back:
+          Value: true
+        back_fisheye:
           Value: true
         base_link:
-          Value: false
-        front_flag:
-          Value: false
-        imu_base:
-          Value: false
-        laser_frame:
-          Value: false
+          Value: true
+        body:
+          Value: true
+        front_rail:
+          Value: true
+        frontleft:
+          Value: true
+        frontleft_fisheye:
+          Value: true
+        frontright:
+          Value: true
+        frontright_fisheye:
+          Value: true
+        head:
+          Value: true
+        hesai_lidar:
+          Value: true
+        left:
+          Value: true
+        left_fisheye:
+          Value: true
         map:
-          Value: false
-        odom_combined:
-          Value: false
-        sonar0:
-          Value: false
-        sonar1:
-          Value: false
-        sonar2:
-          Value: false
-        sonar3:
-          Value: false
-        sonar4:
-          Value: false
+          Value: true
+        odom:
+          Value: true
+        real_front_rail:
+          Value: true
+        real_rear_rail:
+          Value: true
+        rear_rail:
+          Value: true
+        right:
+          Value: true
+        right_fisheye:
+          Value: true
       Marker Alpha: 1
       Marker Scale: 5
       Name: TF
@@ -132,24 +149,34 @@ Visualization Manager:
       Show Names: true
       Tree:
         map:
-          odom_combined:
-            base_footprint:
+          odom:
+            body:
               base_link:
-                front_flag:
+                {}
+              front_rail:
+                {}
+              head:
+                back:
+                  back_fisheye:
+                    {}
+                frontleft:
+                  frontleft_fisheye:
+                    {}
+                frontright:
+                  frontright_fisheye:
+                    {}
+                left:
+                  left_fisheye:
+                    {}
+                right:
+                  right_fisheye:
+                    {}
+              hesai_lidar:
+                {}
+              real_front_rail:
+                real_rear_rail:
                   {}
-              imu_base:
-                {}
-              laser_frame:
-                {}
-              sonar0:
-                {}
-              sonar1:
-                {}
-              sonar2:
-                {}
-              sonar3:
-                {}
-              sonar4:
+              rear_rail:
                 {}
       Update Interval: 0
       Value: true
@@ -244,7 +271,7 @@ Visualization Manager:
       Value: true
     - Class: rviz/Image
       Enabled: false
-      Image Topic: /merged_image
+      Image Topic: /usb_cam1/image_raw
       Max Value: 1
       Median window: 5
       Min Value: 0
@@ -306,7 +333,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 20.288999557495117
+      Distance: 7.3053436279296875
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -314,9 +341,9 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: -8.289725303649902
-        Y: -5.965329647064209
-        Z: 10.559956550598145
+        X: 1.084195852279663
+        Y: 4.543342113494873
+        Z: 9.426774024963379
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
@@ -324,7 +351,7 @@ Visualization Manager:
       Near Clip Distance: 0.009999999776482582
       Pitch: 1.5697963237762451
       Target Frame: <Fixed Frame>
-      Yaw: 2.169956684112549
+      Yaw: 6.15814733505249
     Saved: ~
 Window Geometry:
   Displays:

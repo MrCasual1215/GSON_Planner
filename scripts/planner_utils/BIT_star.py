@@ -420,27 +420,3 @@ class BITStar:
 
 
 
-
-def main():
-    costmap = cv2.imread("/home/orin/arena_ws/src/ourplanner/map/test/costmap22.png",cv2.IMREAD_GRAYSCALE)
-    x_start = (5, 5)  # Starting node
-    x_goal = (25, 10)  # Goal node
-    eta = 2
-    iter_max = 300
-    print("start!!!")
-    bit = BITStar(eta, iter_max, costmap, 0.05, [])
-
-    t1 = time.time()
-    path_x, path_y = bit.planning(x_start, x_goal)
-    print(time.time() - t1)
-    print(path_x,path_y)
-
-    show_map = costmap.copy()
-    for i in range(len(path_x)-1):
-        cv2.line(show_map,(int(path_y[i]*20),int(path_x[i]*20)), (int(path_y[i+1]*20),int(path_x[i+1]*20)), 128,2)
-    cv2.imwrite("/home/orin/arena_ws/src/ourplanner/map/test/bit.png",show_map)
-  
-
-
-if __name__ == '__main__':
-    main()

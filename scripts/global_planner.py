@@ -47,7 +47,7 @@ class Global_planner:
         
     def Get_robot_pose(self):
         """
-        获取机器人位置 6d
+        the robot pose in map frame
         """
         pose = self.tf_buffer.lookup_transform('map','base_link',rospy.Time(0))
         self.current_pose.x  = pose.transform.translation.x
@@ -63,7 +63,7 @@ class Global_planner:
 
     def New_Goal_cb(self,msg:PoseStamped):
         """
-        rviz 中的 2d nav goal 来获取目标点 
+        get new goal
         """
         self.planning_finished = False
         rospy.loginfo("Got new goal !")

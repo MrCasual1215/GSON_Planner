@@ -19,7 +19,6 @@ map_manager:
 group_manager:
   predicted_steps: 2
 
-
 timestep: 0.1
 
 

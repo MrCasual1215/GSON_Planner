@@ -81,7 +81,7 @@ class Map_manager:
             for pose in poses.poses:
                 x = int((pose.position.x - self.origin_x)/self.resolution)
                 y = int((pose.position.y - self.origin_y)/self.resolution)
-                cv2.circle(global_costmap, (y,x), int(self.person_inflate_size/0.05), 0, -1) # 参数：圆心，半径，颜色，厚度
+                cv2.circle(global_costmap, (y,x), int(self.person_inflate_size/0.05), 0, -1) 
 
         self.middle_costmap = global_costmap
         cv2.imwrite(self.middle_costmap_path, self.middle_costmap)

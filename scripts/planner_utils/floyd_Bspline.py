@@ -38,27 +38,20 @@ class Floyd_Bspline:
             start_point = points[i]
             end_point = points[i + 1]
 
-            # 计算两点之间的距离
             dist = np.linalg.norm(np.array(end_point) - np.array(start_point))
-
-            # 计算需要插入的点数
             num_points_to_insert = int(np.floor(dist / interval))
 
             if  num_points_to_insert == 0 :
                 continue
 
-            # 生成新点
             for j in range(num_points_to_insert + 1):
                 fraction = j / num_points_to_insert if num_points_to_insert > 0 else 0
                 new_point = start_point + fraction * (np.array(end_point) - np.array(start_point))
                 interpolated_points.append(tuple(new_point))
 
-            # 避免重复添加终点
             if i < len(points) - 2:
                 interpolated_points.pop()
 
-        # 添加最后一个点
-        # interpolated_points.append(points[-1])
 
         return interpolated_points
 

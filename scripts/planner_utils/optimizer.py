@@ -207,7 +207,7 @@ class NmpcDbcfOptimizer:
         for cost_name in self.costs:
             cost += self.costs[cost_name]
         self.opti.minimize(cost)
-        option = {"verbose": False, "ipopt.print_level": 0, "print_time": 0}
+        option = {"verbose": False, "ipopt.print_level": 0, "print_time": 0, "expand": True}
         start_timer = datetime.datetime.now()
         self.opti.solver("ipopt", option)
         try:

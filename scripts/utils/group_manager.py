@@ -10,11 +10,11 @@ import rospy
 import math
 
 class Group:
-    poses:list          # group中所有人的 pose  [x, y]
-    ids:list            # group中所有人的 id     
-    vels:list           # group中所有人的 velovity  [vx, vy]
-    stamps:list         # 记录上一次改变pose的时刻
-    person_number:int   # group中的总人数
+    poses:list           
+    ids:list             
+    vels:list           
+    stamps:list         
+    person_number:int   
 
 
     def __init__(self, pose_list, id_list, vel_list, stamp) -> None:
@@ -28,23 +28,26 @@ class Group:
 
 class Group_manager:
     '''
-    通过维护一系列GPT所识别到的group, 即self.groups,来获取middle planning所需要的人群的凸包信息,
-    包络椭圆和凸多边形,即self.ellipses_group与self.polygons,并将其发布。
-    
-    Inputs:
-        group_msg               : 获取GPT的分组结果
-        track_msg               : 用来更新每个group中人的pose
+    By maintaining a series of groups recognized by GPT (i.e., self.groups), 
+    this module obtains the crowd convex hull information required for middle planning, 
+    including the enclosing ellipses and convex polygons (self.ellipses_group and self.polygons), 
+    and publishes them.
 
-    Output:
-        ellipses_group          ：人群的包络椭圆
-        polygons                ：人群的凸多边形
+    Inputs:
+        group_msg   : Grouping results obtained from GPT
+        track_msg   : Used to update the pose of each person within a group
+
+    Outputs:
+        ellipses_group  : Enclosing ellipses of the crowd
+        polygons        : Convex polygons of the crowd
     '''
+
 
     groups:list
     group_number:int
     polygons:list
     ellipses_group:list
-    GPT_PERCEIVED:bool             # 获取到了GPT信息
+    GPT_PERCEIVED:bool          
 
 
     def __init__(self) -> None:
@@ -63,17 +66,18 @@ class Group_manager:
     def Group_add(self, group_msg:Groups):
         # rospy.loginfo("Group msg received!")
         """
-        将GPT识别到的分组结果记录下来 [poses,ids,vels,stamps]
+        Record the group results recognized by GPT [poses, ids, vels, stamps].
 
         Args:
-            group_msg             : GPT识别得到的结果, 每个group中由poselist, idlist, vellist组成
+            group_msg   : Results obtained from GPT, where each group consists of a poselist, idlist, and vellist
         """
+
         if all(len(group.group_id_list) <= 1 for group in group_msg.group_list):
             return
 
         groups = []
         for group in group_msg.group_list:
-            group:Group_msg # 注意与下方group区别 GPT输出的msg.group 
+            group:Group_msg 
             pose_list, id_list, vel_list = [], [], []
             for pose, id, vx, vy in zip(group.group_pose_list.poses, group.group_id_list, group.group_vel_x_list, group.group_vel_y_list):
                 pose_list.append([pose.position.x,pose.position.y])
@@ -90,8 +94,7 @@ class Group_manager:
         polygons = []
         ellipses_group = []
         for group in self.groups:
-            group:Group # 注意与上方group区别 Group_manager 维护的self.group
-            # 找到每个group的凸包 ， 获取凸多边形和椭圆
+            group:Group 
             poses = group.poses
             for n in range(self.p_step+1):
                 poses = [[pose[0] + group.vels[i][0]*n*self.timestep, pose[1] + group.vels[i][1]*n*self.timestep] for i, pose in enumerate(poses)]
@@ -100,7 +103,6 @@ class Group_manager:
                     polygon = self.get_polygons(poses,self.hull.vertices,0.1)
                     ellipses = self.get_ellipses(poses,self.hull.vertices,0.5)
                 elif group.person_number == 2:  
-                    # 只有两个人的情况
                     polygon = self.get_polygons(poses,[0,1],0.1)
                     ellipses = self.get_ellipses(poses,[0,1],0.5)
                 else:
@@ -118,14 +120,18 @@ class Group_manager:
 
     def Group_update(self, track_msg:Track_msg):
         """
-        只关注已经在groups中的ids, 不考虑单个人(交给local planner)
+        Focus only on the IDs already present in groups, ignoring single individuals 
+        (these are handled by the local planner).
 
-            1) id处于跟踪状态(in tracks)             : 用tracks来更新人的 pose, vel, stamp 
-            2) group中的id丢失                      : 使用最后一次出现的 pose 与 vel 来预测现在这一帧的位置
+            1) If an ID is in the tracking state (in tracks): 
+            use tracks to update the person's pose, velocity, and timestamp.  
+            2) If an ID in the group is lost: 
+            use the last known pose and velocity to predict the current position in this frame.  
 
         Args:
-            track_msg            : perception module 所实时得到的人的poses, ids, vels
+            track_msg   : Real-time poses, IDs, and velocities of people obtained from the perception module
         """
+
 
         self.poses = track_msg.track_pose_list
         
@@ -134,22 +140,21 @@ class Group_manager:
         polygons = []
         ellipses_group = []
         for group in self.groups:
-            group:Group # 注意与上方group区别 Group_manager 维护的self.group
-            # 更新每一个group的pose
+            group:Group 
+            # update each person's pose in group
             for index in range(group.person_number):
                 if group.ids[index] in track_msg.track_id_list: 
-                    # 同一id处于跟踪状态, 更新pose, vel, stamp
+                    # update pose, vel, stamp
                     index_in_tracks = track_msg.track_id_list.index(group.ids[index])  
                     group.poses[index] = [track_msg.track_pose_list.poses[index_in_tracks].position.x, \
                                           track_msg.track_pose_list.poses[index_in_tracks].position.y]
                     group.vels[index] = [track_msg.track_vel_x_list[index_in_tracks], track_msg.track_vel_y_list[index_in_tracks]]
                     group.stamps[index] = track_msg.header.stamp
                 else:   
-                    # 人口失踪: 用vel更新pose
+                    # using last pose and vel to predict current pose
                     dt = (track_msg.header.stamp - group.stamps[index]).to_sec()
                     dx = group.vels[index][0]*dt
                     dy = group.vels[index][1]*dt
-                    # 就不动把
                     # group.poses[index] =  [group.poses[index][0] + dx, group.poses[index][1] + dy] 
 
             poses = group.poses
@@ -160,7 +165,7 @@ class Group_manager:
                     polygon = self.get_polygons(poses,self.hull.vertices,0.1)
                     ellipses = self.get_ellipses(poses,self.hull.vertices,0.5)
                 elif group.person_number == 2:  
-                    # 只有两个人的情况
+                    # only two people
                     polygon = self.get_polygons(poses,[0,1],0.1)
                     ellipses = self.get_ellipses(poses,[0,1],0.5)
                 else:
@@ -179,8 +184,9 @@ class Group_manager:
 
     def Group_pub(self):
         """
-        将每一个group的包络椭圆和凸多边形 publish
+        publish self.ellipses_group and self.polygons
         """
+
         # publish ellipses
         n, x, y, a, b, theta = 0, [], [], [], [], []
         for _ellipses in self.ellipses_group:
@@ -196,7 +202,7 @@ class Group_manager:
         ellipses_msg.a = a
         ellipses_msg.b = b
         ellipses_msg.theta = theta
-        self.ellipses_msg = ellipses_msg # 记录msg 
+        self.ellipses_msg = ellipses_msg  
         self.ellipses_pub.publish(ellipses_msg)
 
 
@@ -215,7 +221,7 @@ class Group_manager:
         polygons_msg.index = index
         polygons_msg.points_x = x
         polygons_msg.points_y = y
-        self.polygons_msg = polygons_msg # 记录msg 
+        self.polygons_msg = polygons_msg 
         self.polygons_pub.publish(polygons_msg)
 
         self.rviz_drawer.ellipses_rviz_show(self.ellipses_group)

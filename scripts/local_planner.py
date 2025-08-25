@@ -38,9 +38,9 @@ class Local_planner:
         
 
     def Get_robot_pose(self):
-        """
-        获取机器人位置 6d
-        """
+        '''
+        the robot pose in map frame
+        '''
         pose = self.tf_buffer.lookup_transform('map','base_link',rospy.Time(0))
         self.robot_pose.x  = pose.transform.translation.x
         self.robot_pose.y  = pose.transform.translation.y
@@ -55,7 +55,7 @@ class Local_planner:
 
     def Middle_path_cb(self,msg:global_path):
         '''
-        获取 middle path
+        get the middle path
         '''
         self.middle_path.length = msg.length
         self.middle_path.path_x = msg.path_x
